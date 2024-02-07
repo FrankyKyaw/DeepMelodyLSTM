@@ -1,26 +1,33 @@
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, LSTM, Activation, Embedding
-import math
-from keras.callbacks import ModelCheckpoint
+from preprocess import preprocess_notes
+from keras.optimizers import Adam
 
-def generate_model(sequence_length, n_vocab):
+EPOCHS = 200
+BATCH_SIZE = 64
+LEARNING_RATE = 0.001
+MODEL_PATH = "model.h5"
+
+def generate_model(sequence_length, n_vocab, embedding_dim=100, dropout=0.35, learning_rate=LEARNING_RATE):
     model = Sequential()
-    model.add(Embedding(n_vocab, 100, input_length=sequence_length))
+    model.add(Embedding(n_vocab, embedding_dim, input_length=sequence_length))
     model.add(LSTM(256, return_sequences=True))
-    model.add(Dropout(0.35))
+    model.add(Dropout(dropout))
     model.add(LSTM(512, return_sequences=True))
-    model.add(Dropout(0.35))
+    model.add(Dropout(dropout))
     model.add(LSTM(256))
     model.add(Dense(256))
-    model.add(Dropout(0.35))
+    model.add(Dropout(dropout))
     model.add(Dense(n_vocab))
     model.add(Activation('softmax'))
-    model.compile(loss='sparse_categorical_crossentropy', optimizer='adam')
+    model.compile(loss='sparse_categorical_crossentropy', optimizer=Adam(learning_rate=learning_rate))
+
+    model.summary()
 
     return model
 
 def train_model(model, network_input, network_output, epochs=200, 
-                batch_size=64, filepath='weights-{epoch:02d}-{loss:.4f}.hdf5'):
+                batch_size=64):
     """
     Train the model with the given number of epochs and batch size and
     saves the weights in the filepath every 20 epochs.
@@ -36,16 +43,20 @@ def train_model(model, network_input, network_output, epochs=200,
     Returns:
         _type_: _description_
     """
-    n_batches = len(network_input) / batch_size
-    n_batches = math.ceil(n_batches)
-    checkpoint = ModelCheckpoint(
-    filepath, monitor='loss',
-    verbose=0,
-    save_best_inly=True,
-    mode='min',
-    save_freq=20*n_batches
-    )
-    callbacks_list = [checkpoint]
+
     model.fit(network_input, network_output, epochs=epochs, 
-              batch_size=batch_size, callbacks=callbacks_list)
-    
+              batch_size=batch_size)
+
+def train(sequence_length, learning_rate=LEARNING_RATE):
+
+    n_vocab, network_input, network_output = preprocess_notes(sequence_length=sequence_length)
+
+    model = generate_model(sequence_length, n_vocab)
+
+    train_model(model, network_input, network_output, epochs=EPOCHS, batch_size=BATCH_SIZE)
+
+    model.save(MODEL_PATH)
+
+
+if __name__ == "__main__":
+    train()
