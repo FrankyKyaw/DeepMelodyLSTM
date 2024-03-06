@@ -99,7 +99,7 @@ def convert_to_int(items, mapping_file):
 
 
 def main():
-    file_path = "../datasets/classical_music_dataset/mozart/mz_311_1.mid"
+    file_path = "mozart/*.mid"
     midi_files = glob.glob(file_path)
     all_files_chords = []
     all_files_notes = []
