@@ -14,6 +14,7 @@ Takes the trained model, chords, and generates a specified number of new notes b
 
 ## To do 
 - [ ] Train on a larger dataset
-- [ ] Preprocess the dataset into beats instead of measures to have more granular   training over the notes
+- [X] Preprocess the dataset into beats instead of measures to have more granular   training over the notes
 - [ ] Explore different neural network architectures specifically multi-head attention mechanisms
 - [ ] Incorporate additional musical features such as dynamics, meter and instrument combinations
+- [ ] Deploy the model to a web application where users can input seed notes 
