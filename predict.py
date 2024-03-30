@@ -1,7 +1,9 @@
 from tensorflow.keras.models import load_model
 from train_model import generate_model
 import numpy as np
-from music21 import note, chord, instrument, stream
+import music21.chord as chord_module
+import music21.note as note_module
+from music21 import stream
 import json
 
 def softmax(x):
@@ -46,19 +48,17 @@ def create_midi(predicted_notes, output_path=output_path):
     s = stream.Stream()
     for segment in predicted_notes:
         elements = segment.split('_')
-        for elem in elements:
-            pitches = elem.split('.')
-            if len(pitches) == 1 and pitches[0].isdigit(): 
-                n = note_module.Note()
-                n.pitch.midi = int(pitches[0])
-                n.quarterLength = 1  
-                s.append(n)
-            else: 
-                chord_pitches = [int(p) for p in pitches if p.isdigit()]
-                if chord_pitches:  
-                    c = chord_module.Chord(chord_pitches)
-                    c.quarterLength = 1
-                    s.append(c)
+        if len(elements) == 1 and elements[0].isdigit(): 
+            n = note_module.Note()
+            n.pitch.midi = int(elements[0])
+            n.quarterLength = 1  
+            s.append(n)
+        else: 
+            chord_pitches = [int(p) for p in elements if p.isdigit()]
+            if chord_pitches:  
+                c = chord_module.Chord(chord_pitches)
+                c.quarterLength = 1
+                s.append(c)
     s.write('midi', fp=output_path)
 
 
