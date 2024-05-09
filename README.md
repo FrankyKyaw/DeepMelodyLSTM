@@ -13,8 +13,8 @@ The train function sets up the model and preprocessed data, and initiates the tr
 Takes the trained model, chords, and generates a specified number of new notes by sampling from the model's predictions. The generation process occurs on a measure-by-measure basis, where the model first predicts the chord for the next measure, and then generates the sequence of notes based on the predicted chord and the previous sequence of notes and chords.
 
 ## To do 
-- [ ] Train on a larger dataset
-- [X] Preprocess the dataset into beats instead of measures to have more granular   training over the notes
+- [X ] Train on a larger dataset
+- [X] Preprocess the dataset into beats instead of measures to have more granular training over the notes
 - [ ] Explore different neural network architectures specifically multi-head attention mechanisms
 - [ ] Incorporate additional musical features such as dynamics, meter and instrument combinations
 - [ ] Deploy the model to a web application where users can input seed notes 

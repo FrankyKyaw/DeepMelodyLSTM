@@ -1,16 +1,54 @@
+import tensorflow as tf
+from music21 import converter, stream, roman, key
 import music21
-from music21 import converter, note, instrument, harmony, midi, roman, key, stream
-from music21 import environment, configure
 import music21.chord as chord_module
 import music21.note as note_module
 import glob
-import json
 import numpy as np
+import json
+from pathlib import Path
 
-def extract_notes_with_music21(file_path):
-    # Load the MIDI file
-    midi = converter.parse(file_path)
+duration_mapping = {
+    0.25: 0,  # Sixteenth note
+    0.5: 1,   # Eighth note
+    0.75: 2,
+    1.0: 3,   # Quarter note
+    1.25: 4,
+    1.5: 5,   # Dotted quarter note
+    1.75: 6,
+    2.0: 7,   # Half note
+    2.25: 8,
+    2.5: 9,   
+    2.75: 10,
+    3.0: 11,   
+    3.25: 12,  
+    3.5: 13,   
+    3.75: 14, 
+    4.0: 15    # Whole note
+}
 
+def get_midi_files_pathlib(directory):
+    path = Path(directory)
+    files_lower = list(path.glob('*.mid'))
+    files_upper = list(path.glob('*.MID'))
+
+    all_files = files_lower + files_upper
+    return all_files
+
+
+
+def get_duration(duration, duration_mapping=duration_mapping):
+    min_diff = float('inf')
+    nearest_duration = None
+    for key in duration_mapping:
+        diff = abs(duration - key)
+        if diff < min_diff:
+            min_diff = diff
+            nearest_duration = key
+    return duration_mapping[nearest_duration]
+    
+def extract_midi_file(midi_file):
+    midi = converter.parse(midi_file)
     original_key = midi.analyze('key')
     if str(original_key) != "C major":      
         transposed_key = key.Key('C')
@@ -18,128 +56,121 @@ def extract_notes_with_music21(file_path):
         midi = midi.transpose(interval)
     else:
         transposed_key = original_key
-    all_chords = []
-    all_notes = []
-    # for element in midi.recurse():
-    #     if any(cls in ['Unpitched', 'PercussionChord'] for cls in element.classes):
-    #         rest = note_module.Rest()
-    #         rest.duration = element.durat|ion
-    #         if element.activeSite:
-    #             element.activeSite.replace(element, rest)
-    chords = midi.chordify()
-    for measure in chords.getElementsByClass('Measure'):
-        measure_notes = {}
-        for note in measure.notesAndRests:
-            beat = note.beat
-            if beat not in measure_notes:
-                measure_notes[beat] = []
-            measure_notes[beat].append(note)
-        note_durations = {}
-        for beat, notes in measure_notes.items():
-            beat_notes = []
-            for note in notes:
-                if isinstance(note, chord_module.Chord):
-                    for single_note in note.pitches:
-                        midi_value = single_note.midi
-                        note_durations[midi_value] = note.duration.quarterLength
-                        beat_notes.append(midi_value)
-                elif isinstance(note, note_module.Note):
-                    midi_value = note.pitch.midi
-                    note_durations[midi_value] = note.duration.quarterLength
-                    beat_notes.append(midi_value)
-                elif isinstance(note, note_module.Rest):
-                    beat_notes.append('R')
-            all_notes.append(beat_notes)
-        if note_durations:
-            sorted_notes = sorted(note_durations, key=note_durations.get, reverse=True)
-            if len(sorted_notes) >= 3:
-                freq = chord_module.Chord(sorted_notes[:4])
-                rn = roman.romanNumeralFromChord(freq, transposed_key)
-                simplified_name = simplify_roman_name(rn)
-            else:
-                simplified_name = 'rest_or_no_chord'
-
-        # Append the chords 4 times for each beat
-        all_chords.append([simplified_name] * 4)
-    return all_chords, all_notes
-
-def simplify_roman_name(roman_numeral):
-    """
-    Simplify roman numeral chord names.
-    """
-    simplified_name = roman_numeral.romanNumeral.upper()
-    return simplified_name
+            
+    melody_stream = stream.Score()
+    chord_stream = stream.Score()
     
-
-def preprocess_sequences(notes, chords, sequence_length, notes_mapping, chords_mapping):
-#     with open(single_file_dataset, "r") as fp:
-#         all_notes = fp.read()            
-    encoded_notes = convert_to_int(notes, notes_mapping)
-    encoded_chords = convert_to_int(chords, chords_mapping)
-    print(len(encoded_notes), len(encoded_chords))
-    network_input_notes = []
-    network_input_chords = []
-    network_output_notes = []
-    network_output_chords = []
-    # Duplicate each chord 4 times
-    encoded_chords_duplicated = [chord for chord in encoded_chords for _ in range(4)]
-    for i in range(len(encoded_chords_duplicated) - sequence_length):
-        sequence_in_notes = encoded_notes[i:i + sequence_length]
-        sequence_out_note = encoded_notes[i + sequence_length]
-        sequence_in_chords = encoded_chords_duplicated[i:i + sequence_length]
-        sequence_out_chord = encoded_chords_duplicated[i + sequence_length]
+    melody_part = midi.parts[0]
+    melody_stream.append(melody_part)
+    
+    if not melody_stream.hasMeasures():
+        melody_stream.makeMeasures(inPlace=True)
         
-        network_input_notes.append(sequence_in_notes)
-        network_input_chords.append(sequence_in_chords)
-        network_output_notes.append(sequence_out_note)
-        network_output_chords.append(sequence_out_chord)
-    print(encoded_notes[:100])
-    n_vocab_notes = len(set(encoded_notes))
-    n_vocab_chords = len(set(encoded_chords))
-    return np.array(network_input_notes), np.array(network_input_chords), np.array(network_output_notes), np.array(network_output_chords), n_vocab_notes, n_vocab_chords
+    for part in midi.parts[1:]:
+        chord_stream.append(part)
+    chords = chord_stream.chordify()
+
+    melody_measures = list(melody_part.measures(0, None))
+    chord_measures = list(chords.measures(0, None))
     
-def create_mappings(items, file_path):
-    unique_items = []
-    for item in items:
-        unique_items.append('_'.join(str(i) for i in item))
-    mappings = {item: number for number, item in enumerate(set(unique_items))}
-    with open(file_path, "w") as file:
+    melody_notes = []
+    melody_duration = []
+    chord_notes = []
+    chord_duration = []
+    
+
+    for melody_measure, chord_measure in zip(melody_measures, chord_measures):
+        melody, mel_duration = extract_measure_info(melody_measure)
+        chord, ch_duration  = extract_measure_info(chord_measure)
+        
+        melody_notes.append(melody)
+        melody_duration.append(mel_duration)
+        chord_notes.append(chord)
+        chord_duration.append(ch_duration)
+        
+    melody_notes.append(['<end>'])
+    melody_duration.append([0])  
+    chord_notes.append(['<end>'])
+    chord_duration.append([0])
+    
+    return melody_notes, melody_duration, chord_notes, chord_duration
+    
+def extract_measure_info(measure):
+    notes = []
+    durations = []
+    for element in measure.notesAndRests:
+        if isinstance(element, note_module.Note):
+            notes.append(element.pitch.midi)
+            mapped_duration = get_duration(float(element.duration.quarterLength), duration_mapping)
+            durations.append(mapped_duration)
+        elif isinstance(element, chord_module.Chord):
+            chord_notes = [p.midi for p in element.pitches]
+            notes.append(chord_notes)
+            mapped_duration = get_duration(float(element.duration.quarterLength), duration_mapping)
+            durations.append(mapped_duration)
+        elif isinstance(element, note_module.Rest):
+            notes.append('Rest')
+            mapped_duration = get_duration(float(element.duration.quarterLength), duration_mapping)
+            durations.append(mapped_duration)
+    return notes, durations
+
+def create_mappings(items_list, mapping_path):
+    unique_items = set() 
+    for items in items_list:
+        item_str = '_'.join(str(i) for i in items)
+        unique_items.add(item_str)  
+    
+    unique_items = list(unique_items)
+    
+    mappings = {item: number for number, item in enumerate(unique_items)}
+    with open(mapping_path, "w") as file:
         json.dump(mappings, file)
     return mappings
 
-def convert_to_int(items, mapping_file):
+def convert_to_int(items, mapping):
     int_notes = []
-    with open(mapping_file, "r") as fp:
-        mappings = json.load(fp)
+    
     for item in items:
         if isinstance(item, list):
             item_str = '_'.join(str(i) for i in item)
         else:
             item_str = item
         
-        int_notes.append(mappings.get(item_str, -1))
+        int_notes.append(mapping.get(item_str, -1))
     return int_notes
 
-
 def main():
-    file_path = "mozart/*.mid"
-    midi_files = glob.glob(file_path)
-    all_files_chords = []
+    reverse_duration_mapping = {value: key for key, value in duration_mapping.items()}
+    directory = 'dataset/choral-dataset/'
+    midi_files = get_midi_files_pathlib(directory)
+
     all_files_notes = []
+    all_files_durations = []
+    all_files_chords = []
+    all_files_chord_durations = []
+    count = 0
     for file in midi_files:
-        all_chords, all_notes = extract_notes_with_music21(file)
-        all_files_chords.extend(all_chords)
-        all_files_notes.extend(all_notes)
+        notes, durations, chords, chord_durations = extract_midi_file(file)
+        if notes is not None and durations is not None and chords is not None and chord_durations is not None:
+            all_files_notes.extend(notes)
+            all_files_durations.extend(durations)
+            all_files_chords.extend(chords)
+            all_files_chord_durations.extend(chord_durations)
+            count += 1
+            print(count)
+        else:
+            print(f"Skipping {file} due to errors in extraction.")
 
-    note_mapping_path = "note_mappings.txt"
-    chord_mapping_path = "chord_mappings.txt"
+    note_mapping_path = "mappings_model/note_mappings.json"
+    note_duration_mapping_path = "mappings_model/note_duration_mappings.json"
+    chord_mapping_path = "mappings_model/chord_mappings.json"
+    chord_duration_mapping_path = "mappings_model/chord_duration_mappings.json"
 
-    a = create_mappings(all_files_notes, note_mapping_path)
-    b = create_mappings(all_files_chords, chord_mapping_path)
-    sequence_length = 64
+    notes_mapping = create_mappings(all_files_notes, note_mapping_path)
+    durations_mapping = create_mappings(all_files_durations, note_duration_mapping_path)
+    chords_mapping = create_mappings(all_files_chords, chord_mapping_path)
+    chord_durations_mapping = create_mappings(all_files_chord_durations, chord_duration_mapping_path)
 
-    # Prepare input and output sequences
-    network_input_notes, network_input_chords, network_output_notes, network_output_chords, n_vocab_notes, n_vocab_chords = preprocess_sequences(all_files_notes, all_files_chords, sequence_length, note_mapping_path, chord_mapping_path)
 
 if __name__ == "__main__":
     main()
