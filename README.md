@@ -1,7 +1,8 @@
 # Deep Melody LSTM
 
 This repository contains a Python implementation of a hierarchical LSTM (Long Short-Term Memory) model for generating music sequences. The project utilizes the music21 library for processing MIDI files and extracting musical information, such as notes, chords, and key signatures.
-
+## Dataset
+Around 200 choral pieces from Renaissance era scraped from https://www.cpdl.org
 ## Data Preprocessing:
 Processes MIDI files and extracts sequences of notes and chords for each measure.
 Then converts the extracted sequences into integer representations suitable for the neural network input. Mapping function generates mappings between musical elements (notes, chords) and their integer representations.
@@ -13,7 +14,7 @@ The train function sets up the model and preprocessed data, and initiates the tr
 Takes the trained model, chords, and generates a specified number of new notes by sampling from the model's predictions. The generation process occurs on a measure-by-measure basis, where the model first predicts the chord for the next measure, and then generates the sequence of notes based on the predicted chord and the previous sequence of notes and chords.
 
 ## To do 
-- [X ] Train on a larger dataset
+- [X] Train on a larger dataset
 - [X] Preprocess the dataset into beats instead of measures to have more granular training over the notes
 - [ ] Explore different neural network architectures specifically multi-head attention mechanisms
 - [ ] Incorporate additional musical features such as dynamics, meter and instrument combinations
