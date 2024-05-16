@@ -12,6 +12,14 @@ The hierarchical_lstm_model function defines the architecture of the hierarchica
 The train function sets up the model and preprocessed data, and initiates the training process using the TensorFlow/Keras API. The trained model is saved for later use in generating music sequences.
 ## Generation:
 Takes the trained model, chords, and generates a specified number of new notes by sampling from the model's predictions. The generation process occurs on a measure-by-measure basis, where the model first predicts the chord for the next measure, and then generates the sequence of notes based on the predicted chord and the previous sequence of notes and chords.
+## Results:
+
+
+https://github.com/FrankyKyaw/DeepMelodyLSTM/assets/73188846/1fd7a7b0-6366-4337-a9bd-2d2b2f160fd9
+
+
+https://github.com/FrankyKyaw/DeepMelodyLSTM/assets/73188846/de4e4cbe-4752-4af3-9cc1-f21de413c267
+
 
 ## To do 
 - [X] Train on a larger dataset
